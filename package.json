@@ -1,0 +1,56 @@
+{
+  "name": "kit-buying-habits",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "typings": "./typings/index.d.ts",
+  "scripts": {
+    "build": "tsc --pretty",
+    "build:watch": "npm run build -- --watch",
+    "test": "tsc && ava-ts --verbose"
+  },
+  "private": true,
+  "author": {
+    "name": "craft ai",
+    "email": "contact@craft.ai",
+    "url": "http://craft.ai/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/craft-ai/kit-buying-habits.git"
+  },
+  "bugs": {
+    "url": "https://github.com/craft-ai/kit-buying-habits/issues"
+  },
+  "homepage": "https://github.com/craft-ai/kit-buying-habits#readme",
+  "devDependencies": {
+    "@types/lodash": "4.14.73",
+    "@types/node": "8.0.22",
+    "@types/seedrandom": "2.4.27",
+    "ava": "^0.24.0",
+    "ava-ts": "^0.23.0",
+    "ts-node": "^3.3.0",
+    "typescript": "2.4.2"
+  },
+  "dependencies": {
+    "craft-ai": "1.8.0",
+    "debug": "3.1.0",
+    "dotenv": "4.0.0",
+    "lodash": "4.17.4",
+    "moment-timezone": "0.5.13",
+    "most": "1.6.1",
+    "most-buffer": "0.0.9",
+    "most-limiter": "0.0.9",
+    "most-range": "0.0.9",
+    "seedrandom": "2.4.3"
+  },
+  "engines": {
+    "node": ">= 6.9.1",
+    "npm": ">= 3.10.8"
+  },
+  "ava": {
+    "files": [
+      "tests/*.ts"
+    ]
+  }
+}
