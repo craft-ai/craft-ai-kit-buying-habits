@@ -1,47 +1,30 @@
-import * as _ from 'lodash';
-import * as moment from 'moment-timezone';
-
+import _ from 'lodash';
 import buffer from 'most-buffer';
 import debug from 'debug';
 import limiter from 'most-limiter';
+import moment from 'moment-timezone';
+import sample from '../../utils/most-sample';
 
+import { from, fromPromise } from 'most';
 import { Time } from 'craft-ai';
-import { Stream, empty, from, fromPromise, just } from 'most';
-
-import sample from '../../utils/most-sample'
-
-import { Intelware } from '../../../typings/index';
 import { slugify } from './utils';
 
 import orderEventConfiguration, {
   OUTPUT_VALUE_NO_ORDER,
   OUTPUT_VALUE_ORDER,
-  Context,
-  ContextOperation,
-  Properties,
-  Output
-} from '../configurations/order_events_per_client_and_category'
+} from '../configurations/order_events_per_client_and_category';
 
-interface Agent {
-  id: string
-  clientId: string
-  categoryId: string
-  brand: string
-  nbOrders: number
-  latestOperation?: ContextOperation
-}
-
-const timeQuantum = orderEventConfiguration.time_quantum as number;
 const log = debug('craft-ai:kit-buying-habits');
+const timeQuantum = orderEventConfiguration.time_quantum;
 
-function retrieveBrandAgents(kit: Intelware.KitInternal) {
+function retrieveBrandAgents(kit) {
   const { client } = kit;
 
-  return (ordersStream: Stream<Intelware.Type.Order>) => {
+  return (ordersStream) => {
     // Make sure the needed agents do exist
     const clientsMarkPromise = ordersStream
       .reduce((clientsMarks, { clientId, date, articles }) => {
-        let ordersArticlesConstructor = [] as string[];
+        let ordersArticlesConstructor = [];
         _.map(articles, ({ brand }) => {
           const id = slugify(clientId, brand);
           if (clientsMarks[id]) {
@@ -66,17 +49,17 @@ function retrieveBrandAgents(kit: Intelware.KitInternal) {
     return fromPromise(clientsMarkPromise)
       .chain((clientsMark) => from(clientsMark))
       // Filter < 2 operations agent
-      .filter((agent: Agent) => agent.nbOrders >= 2)
+      .filter((agent) => agent.nbOrders >= 2)
       // Match the rate limiting of craft ai (2 requests per agent)
       .thru(limiter(1000 / 50 * 2, 10000))
-      .chain((agent: Agent) => {
+      .chain((agent) => {
         const { id } = agent;
 
         return fromPromise(client
           .getAgent(id)
           .then(({ lastTimestamp }) => lastTimestamp
             ? client
-              .getAgentContext<Properties>(id, lastTimestamp)
+              .getAgentContext(id, lastTimestamp)
               .then((latestOperation) => {
                 delete latestOperation.context.day;
                 delete latestOperation.context.month;
@@ -88,23 +71,23 @@ function retrieveBrandAgents(kit: Intelware.KitInternal) {
             if (error.message.includes('[NotFound]')) {
               return client
                 .createAgent(orderEventConfiguration, id)
-                .then(() => agent)
+                .then(() => agent);
             }
 
             return Promise.reject(error);
           }));
-    });
+      });
   };
 }
 
-function retrieveCategoryAgents(kit: Intelware.KitInternal) {
+function retrieveCategoryAgents(kit) {
   const { client } = kit;
 
-  return (ordersStream: Stream<Intelware.Type.Order>) => {
+  return (ordersStream) => {
     // Make sure the needed agents do exist
     const clientsCategoriesPromise = ordersStream
       .reduce((clientsCategories, { clientId, date, articles }) => {
-        let ordersArticlesCat = [] as string[];
+        let ordersArticlesCat = [];
         _.map(articles, ({ categoryId }) => {
           const id = slugify(clientId, categoryId);
           if (clientsCategories[id]) {
@@ -129,17 +112,17 @@ function retrieveCategoryAgents(kit: Intelware.KitInternal) {
     return fromPromise(clientsCategoriesPromise)
       .chain((clientsCategories) => from(clientsCategories))
       // Filter < 2 operations agent
-      .filter((agent: Agent) => agent.nbOrders >= 2)
+      .filter((agent) => agent.nbOrders >= 2)
       // Match the rate limiting of craft ai (2 requests per agent)
       .thru(limiter(1000 / 50 * 2, 10000))
-      .chain((agent: Agent) => {
+      .chain((agent) => {
         const { id } = agent;
 
         return fromPromise(client
           .getAgent(id)
           .then(({ lastTimestamp }) => lastTimestamp
             ? client
-              .getAgentContext<Properties>(id, lastTimestamp)
+              .getAgentContext(id, lastTimestamp)
               .then((latestOperation) => {
                 delete latestOperation.context.day;
                 delete latestOperation.context.month;
@@ -151,19 +134,19 @@ function retrieveCategoryAgents(kit: Intelware.KitInternal) {
             if (error.message.includes('[NotFound]')) {
               return client
                 .createAgent(orderEventConfiguration, id)
-                .then(() => agent)
+                .then(() => agent);
             }
 
             return Promise.reject(error);
           }));
-    });
+      });
   };
 }
 
-function addOperations(kit: Intelware.KitInternal, agent: Agent, type: string) {
+function addOperations(kit, agent, type) {
   const { client } = kit;
 
-  return (ordersStream: Stream<Intelware.Type.Order>) => {
+  return (ordersStream) => {
     const { id, clientId, categoryId, brand, latestOperation = null } = agent;
 
     return ordersStream
@@ -176,7 +159,7 @@ function addOperations(kit: Intelware.KitInternal, agent: Agent, type: string) {
           return article.categoryId === categoryId;
         }
       }))
-      .map((order): ContextOperation => {
+      .map((order) => {
         const time = Time(moment.tz(order.date, 'Europe/Paris').startOf('day'));
 
         return {
@@ -197,21 +180,21 @@ function addOperations(kit: Intelware.KitInternal, agent: Agent, type: string) {
       // Match the rate limiting of craft ai
       .thru(limiter(1000 / 50))
       .concatMap((operations) => fromPromise(client.addAgentContextOperations(id, operations)));
-  }
+  };
 }
 
-function generateNegativeSample(previous: Partial<Context>, next: Partial<Context>, timestamp: number): Partial<Context> {
+function generateNegativeSample(previous, next, timestamp) {
   return {
     timezone: Time(moment.tz(timestamp, 'Europe/Paris').startOf('day')).timezone,
     order: OUTPUT_VALUE_NO_ORDER
   };
 }
 
-function extendFromPreviousContext(current: Partial<Context>, previous: Partial<Context>, periodsSinceLastEvent: number): Partial<Context> {
+function extendFromPreviousContext(current, previous, periodsSinceLastEvent) {
   return { periodsSinceLastEvent };
 }
 
-function updateCategories(kit: Intelware.KitInternal, orders: Intelware.Type.Order[]) {
+function updateCategories(kit, orders) {
   const { clients, categories } = kit;
 
   return from(orders.sort((a, b) => +a.date - +b.date))
@@ -221,8 +204,8 @@ function updateCategories(kit: Intelware.KitInternal, orders: Intelware.Type.Ord
     .drain();
 }
 
-function updateBrands(kit: Intelware.KitInternal, orders: Intelware.Type.Order[]) {
-  const { clients, categories } = kit;
+function updateBrands(kit, orders) {
+  const { clients } = kit;
 
   return from(orders.sort((a, b) => +a.date - +b.date))
     .thru(retrieveBrandAgents(kit))
@@ -231,10 +214,8 @@ function updateBrands(kit: Intelware.KitInternal, orders: Intelware.Type.Order[]
     .drain();
 }
 
-export default function update(kit: Intelware.KitInternal) {
-  const { clients, categories } = kit;
-
-  return (orders: Intelware.Type.Order[], type: string) => {
+export default function update(kit) {
+  return (orders, type) => {
     switch (type) {
       case 'all':
         return Promise.all([
@@ -248,5 +229,5 @@ export default function update(kit: Intelware.KitInternal) {
       default:
         return Promise.reject(new Error(`Unknown agent type ${type}. Allowed values: all, brand and category.`));
     }
-  }
+  };
 }

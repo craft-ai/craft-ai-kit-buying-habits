@@ -1,45 +1,21 @@
-import * as seedrandom from 'seedrandom';
+import seedrandom from 'seedrandom';
 import range from 'most-range';
 
-import { Context, ContextOperation, Properties } from 'craft-ai';
-import { Stream, empty, from, just, periodic } from 'most';
-
-type Generator<P extends Properties> = (
-  previous: Partial<Context<P>>,
-  next: Partial<Context<P>>,
-  timestamp: number) => Partial<Context<P>>
-
-type FromPreviousExtender<P extends Properties> = (
-  current: Partial<Context<P>>,
-  previous: Partial<Context<P>> | null,
-  periodSinceLastEvent: number) => Partial<Context<P>>
-
-type FromNextExtender<P extends Properties> = (
-  current: Partial<Context<P>>,
-  next: Partial<Context<P>> | null,
-  periodToUpcomingEvent: number) => Partial<Context<P>>
-
-interface Options<P extends Properties> {
-  latest?: ContextOperation<P> | null
-  extendFromPrevious?: FromPreviousExtender<P>
-  extendFromNext?: FromNextExtender<P>
-  keepFirst?: boolean
-  keepLast?: boolean
-}
+import { empty, just } from 'most';
 
 const emptyContext = () => ({});
 const random = seedrandom('kit-buying-habits');
 
-export function sample<P extends Properties> (period: number, generate: Generator<P> = emptyContext, options: Options<P> = {}) {
+export function sample(period, generate = emptyContext, options = {}) {
   const extendFromPrevious = options.extendFromPrevious || emptyContext;
   const extendFromNext = options.extendFromNext || emptyContext;
   const latest = options.latest || null;
 
   let keepFirst = options.keepFirst === true;
 
-  return (stream: Stream<ContextOperation<P> | null>) => stream
+  return (stream) => stream
     .concat(options.keepLast === true ? just(null) : empty())
-    .loop<ContextOperation<P> | null, Stream<ContextOperation<P>>>((previous, operation) => {
+    .loop((previous, operation) => {
       if (operation === null) {
         return {
           seed: null,
@@ -68,7 +44,7 @@ export function sample<P extends Properties> (period: number, generate: Generato
           seed: previous,
           value: empty()
         };
-      };
+      }
 
       const previousContext = previous.context;
       const context = operation.context;
@@ -105,12 +81,10 @@ export function sample<P extends Properties> (period: number, generate: Generato
         value: samples.startWith(previous)
       };
     }, null)
-    .mergeConcurrently<ContextOperation<P>>(1)
+    .mergeConcurrently(1);
 }
 
-function mergeContext<P extends Properties> (
-  operation: ContextOperation<P>,
-  context: Partial<Context<P>>) {
+function mergeContext(operation, context) {
   Object.assign(operation.context, context);
 
   return operation;
