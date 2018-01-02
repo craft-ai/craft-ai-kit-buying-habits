@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import Kit from '../src';
 import test from 'ava';
 
@@ -215,7 +216,7 @@ test('Request FRUIT in JAN to FEB', (t) => {
       t.is(resultRequest[0].name, 'FRUIT_CAT-1_CAT-2');
       t.is(resultRequest[1].name, 'CAT-1_CAT-2');
       t.is(resultRequest[2].name, 'FRUIT');
-      t.deepEqual(new Set(resultRequest[0].result.results), new Set([
+      t.deepEqual(_.sortBy(resultRequest[0].result.results, ['clientId']), [
         {
           clientId: 'C1234',
           confidence: 0.6774609088897705
@@ -224,7 +225,7 @@ test('Request FRUIT in JAN to FEB', (t) => {
           clientId: 'C5678',
           confidence: 0.6774609088897705
         }
-      ]));
+      ]);
       t.deepEqual(resultRequest[1].result.results, []);
       t.deepEqual(resultRequest[2].result.results, []);
     });
