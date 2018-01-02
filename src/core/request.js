@@ -22,15 +22,15 @@ const timeQuantum = orderEventConfiguration.time_quantum;
 function predictNextOrder(decisionTree, from, to, lastOrderTimestamp, confidenceThreshold, tz) {
   const tq = decisionTree.configuration.time_quantum;
   return range(from, to, tq)
-    .loop((lastOrderDatetime, timestamp) => {
+    .loop((lastOrderTimestamp, timestamp) => {
       const datetime = moment.tz(timestamp * 1000, tz);
-      const periodsSinceLastEvent = Math.floor(datetime.diff(lastOrderDatetime) / 1000 / tq);
+      const periodsSinceLastEvent = Math.floor((lastOrderTimestamp - timestamp) / tq);
       const decision = decide(decisionTree, { periodsSinceLastEvent }, Time(datetime)).output.order;
 
       if (decision.predicted_value === OUTPUT_VALUE_ORDER) {
         return {
           value: decision,
-          seed: datetime
+          seed: datetime.unix()
         };
       }
       return {
@@ -38,56 +38,70 @@ function predictNextOrder(decisionTree, from, to, lastOrderTimestamp, confidence
           ...decision,
           confidence: 0
         },
-        seed: lastOrderDatetime
+        seed: lastOrderTimestamp
       };
-    }, moment.tz(lastOrderTimestamp * 1000, tz))
+    }, lastOrderTimestamp)
     .skipWhile(({ confidence }) => confidence <= confidenceThreshold)
     .thru(first);
 }
 
-function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, client, clientBase) {
+function predictAgentsMakingOrders(categoryOrBrand, fromDate, toDate, confidenceThreshold, tz, client, agentsList) {
+  const categoryOrBrandSlug = slugify(' ', categoryOrBrand);
+  const fromTimestamp = moment.tz(fromDate, tz).startOf('day').unix();
+  const toTimestamp = toDate
+    ? moment.tz(toDate, tz).startOf('day').unix()
+    : fromTimestamp + timeQuantum;
+
+  return most.from(agentsList)
+    .filter((agentId) => agentId.endsWith(categoryOrBrandSlug)) // Filtering the agents we want to make predictions on
+    .thru(limiter(1000 / 50 * 2)) // Match the rate limiting of craft ai (2 requests per agent)
+    .chain((agentId) => most.fromPromise(client
+      .getAgentContextOperations(agentId)
+      .then((operations) => {
+        if (operations.length < 2) {
+          // Not enough information, thus always predicting `ORDER`
+          return;
+        }
+
+        const lastTimestamp = (_.last(operations)).timestamp;
+        const treeTimestamp = Math.min(fromTimestamp, lastTimestamp);
+        const lastOrder = getLastOperation(operations, treeTimestamp);
+
+        if (!lastOrder) {
+          // Unable to decide with no past order
+          return;
+        }
+
+        return client.getAgentDecisionTree(agentId, treeTimestamp)
+          .then((tree) => predictNextOrder(tree, fromTimestamp, toTimestamp, lastOrder.timestamp, confidenceThreshold, tz))
+          .then(({ confidence }) => ({ agentId, confidence }));
+      }))
+    )
+    .filter((value) => !!value)
+    .reduce((array, value) => [...array, value], [])
+    .then((results) => ({
+      query: { categoryOrBrand, from: fromTimestamp, to: toTimestamp },
+      results
+    }));
+}
+
+function makeQuery(types, toDate, fromDate, levelOfInterest, intersectionArray, client, clientBase) {
   return _.reduce(types, (promise, type) => {
-    const categoryId = slugify(' ', type);
-    const timestamp = moment.tz(dateFrom, 'Europe/Paris').startOf('day').unix();
-    const to = dateTo
-      ? moment.tz(dateTo, 'Europe/Paris').startOf('day').unix()
-      : timestamp + timeQuantum;
-
     return promise
-      .then((arrayResults) => most.from(clientBase)
-        .filter((agentId) => agentId.endsWith(categoryId))
-        .thru(limiter(1000 / 50 * 2)) // Match the rate limiting of craft ai (2 requests per agent)
-        .chain((agentId) => most.fromPromise(client
-          .getAgentContextOperations(agentId)
-          .then((operations) => {
-            if (operations.length < 2) {
-              // Not enough information, thus always predicting `ORDER`
-              return;
-            }
-
-            const lastTimestamp = (_.last(operations)).timestamp;
-            const treeTimestamp = timestamp > lastTimestamp ? lastTimestamp : timestamp;
-            const lastOrder = getLastOperation(operations, treeTimestamp);
-
-            if (!lastOrder) {
-              // Unable to decide with no past order
-              return;
-            }
-
-            return client.getAgentDecisionTree(agentId, treeTimestamp)
-              .then((tree) => predictNextOrder(tree, timestamp, to, lastOrder.timestamp, LEVEL_OF_INTEREST[levelOfInterest], 'Europe/Paris'))
-              .then(({ confidence }) => ({ clientId: agentId.split('-')[0], confidence }));
-          }))
-        )
-        .filter((value) => !!value)
-        .reduce((array, value) => [...array, value], [])
-        .then((results) => {
-          arrayResults.push({
-            query: { categoryId: categoryId, from: timestamp, to },
-            results
+      .then((arrayResults) => {
+        return predictAgentsMakingOrders(
+          type, 
+          fromDate, 
+          toDate, 
+          LEVEL_OF_INTEREST[levelOfInterest],
+          'Europe/Paris',
+          client,
+          clientBase)
+          .then((result) => {
+            arrayResults.push(result);
+            return arrayResults;
           });
-          return arrayResults;
-        }));
+      });
   }, Promise.resolve([]))
     .then((listsResult) => {
       // remove multiple occurences
@@ -98,7 +112,7 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
       let queryArrayResults = [];
       _.forEach(listsResult, (list) => {
         finalList.query.push(list.query);
-        queryArrayResults.push(list.results);
+        queryArrayResults.push(list.results.map(({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence })));
       });
       if (intersectionArray) {
         finalList.results = intersection(queryArrayResults);
@@ -115,6 +129,7 @@ function filterAgentsList(predictedClients, agentsList) {
     _.findIndex(predictedClients.results, (agentResult) => agent.startsWith(agentResult.clientId)) < 0
   );
 }
+
 function generateQueries(categories, brand) {
   let querylist = _.reduce(categories, (querylist, category) => {
     let queryParam = {
