@@ -219,7 +219,8 @@ test('Request BORNIBUS in JAN to FEB', (t) => {
       t.is(result[1].query, 'FRUIT_VEGETABLE');
       t.is(result[2].query, 'BORNIBUS');
       t.log(JSON.stringify(result, null, 2));
-      t.deepEqual(_.sortBy(result[0].clients, ['clientId']), [
+      t.deepEqual(result[0].clients, []);
+      t.deepEqual(_.sortBy(result[1].clients, ['clientId']), [
         {
           clientId: 'C1234',
           confidence: 0.6774609088897705
@@ -229,7 +230,6 @@ test('Request BORNIBUS in JAN to FEB', (t) => {
           confidence: 0.6774609088897705
         }
       ]);
-      t.deepEqual(result[1].clients, []);
       t.deepEqual(result[2].clients, []);
     });
 });

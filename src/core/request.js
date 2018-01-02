@@ -84,26 +84,28 @@ function predictAgentsMakingOrders(categoryOrBrand, fromDate, toDate, confidence
     .thru(last);
 }
 
-function createQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, isIntersection, client) {
+function filterAgentsList(agentsList, predictedClients) {
+  return _.filter(agentsList, (agent) => 
+    _.findIndex(predictedClients, ({ clientId }) => agent.startsWith(clientId)) < 0
+  );
+}
+
+function createUnionQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, client) {
   return (potentialAgentsList) => most.from(categoryOrBrandList)
-    .concatMap((categoryOrBrand) => most.fromPromise( 
-      predictAgentsMakingOrders(
-        categoryOrBrand, 
-        fromDate, 
-        toDate, 
-        LEVEL_OF_INTEREST[levelOfInterest],
-        'Europe/Paris',
-        client,
-        potentialAgentsList)
-    ))
+    .concatMap((category) => most.fromPromise(predictAgentsMakingOrders(
+      category, 
+      fromDate, 
+      toDate, 
+      LEVEL_OF_INTEREST[levelOfInterest],
+      'Europe/Paris',
+      client,
+      potentialAgentsList).then((predictedAgentsList) => _.map(predictedAgentsList, ({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence }))))
+    )
     .thru(buffer())
     .thru(last)
-    .then((predictedAgentsListList) => {
-      const predictedAgentsList = isIntersection ? intersection(predictedAgentsListList) : union(predictedAgentsListList);
-      const predictedClientsList = _.map(predictedAgentsList, ({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence }));
-      const remainingAgentsList = _.filter(potentialAgentsList, (agent) => 
-        _.findIndex(predictedClientsList, ({ clientId }) => agent.startsWith(clientId)) < 0
-      );
+    .then((predictedClientsListList) => {
+      const predictedClientsList = union(predictedClientsListList);
+      const remainingAgentsList = filterAgentsList(potentialAgentsList, predictedClientsList);
       return {
         query: categoryOrBrandList.join('_'),
         clients: predictedClientsList,
@@ -113,16 +115,27 @@ function createQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, isI
 }
 
 function createQueries(brand, categoryGroupList, from, to, levelOfInterest, client) {
+  const brandQuery = brand ? createUnionQuery([brand], from, to, levelOfInterest, client) : undefined;
   let queries = _.reduce(categoryGroupList, (queries, categoryGroup) => {
-    if (brand) {
-      // TODO This computes an intersection of all the brand + each category group, wich is not what we want now.
-      queries.push(createQuery([brand, ...categoryGroup], from, to, levelOfInterest, true, client));
+    const categoryGroupQuery = createUnionQuery(categoryGroup, from, to, levelOfInterest, client);
+    if (brandQuery) {
+      queries.push((potentialAgentsList) => {
+        return brandQuery(potentialAgentsList).then((brandQueryResult) => categoryGroupQuery(potentialAgentsList).then((categoryQueryResult) => {
+          const predictedClientsList = intersection(brandQueryResult.clients, categoryQueryResult.clients);
+          const remainingAgentsList = filterAgentsList(potentialAgentsList, predictedClientsList);
+          return {
+            query: `${brand}_${categoryGroup.join('_')}`,
+            clients: predictedClientsList,
+            remainingAgentsList: remainingAgentsList
+          };
+        }));
+      });
     }
-    queries.push(createQuery(categoryGroup, from, to, levelOfInterest, false, client));
+    queries.push(categoryGroupQuery);
     return queries;
   }, []);
-  if (brand) {
-    queries.push(createQuery([brand], from, to, levelOfInterest, true, client));
+  if (brandQuery) {
+    queries.push(brandQuery);
   }
   return queries;
 }
