@@ -1,21 +1,7 @@
-require('dotenv').config();
-
-const Kit = require('../bin/kit').default;
-const moment = require('moment-timezone');
-const test = require('ava');
+import Kit from '../src';
+import test from 'ava';
 
 const kit = Kit.create({ token: process.env.CRAFT_TOKEN });
-
-function coerceToDate(dateStr) {
-  if (!dateStr) {
-    return undefined;
-  }
-  const m = moment(dateStr, 'YYYY-MM-DD');
-  if (!m.isValid()) {
-    throw new Error(`'${dateStr}' is not a valid date, use 'YYYY-MM-DD'.`);
-  }
-  return m.toDate();
-}
 
 // const clients = [
 //   {
@@ -46,7 +32,7 @@ function coerceToDate(dateStr) {
 const orders = [
   {
     id: 'CH-A13H1-ORD',
-    date: coerceToDate('2017-12-01'),
+    date: new Date('2017-12-01'),
     clientId: 'C1234',
     articles: [
       {
@@ -67,7 +53,7 @@ const orders = [
   },
   {
     id: 'CH-A13H1-ORD',
-    date: coerceToDate('2017-12-05'),
+    date: new Date('2017-12-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -95,7 +81,7 @@ const orders = [
   },
   {
     id: 'CH-A14H1-ORD',
-    date: coerceToDate('2018-01-05'),
+    date: new Date('2018-01-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -123,7 +109,7 @@ const orders = [
   },
   {
     id: 'CH-A15H1-ORD',
-    date: coerceToDate('2018-02-05'),
+    date: new Date('2018-02-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -151,7 +137,7 @@ const orders = [
   },
   {
     id: 'CH-A16H1-ORD',
-    date: coerceToDate('2017-12-05'),
+    date: new Date('2017-12-05'),
     clientId: 'C5678',
     articles: [
       {
@@ -179,7 +165,7 @@ const orders = [
   },
   {
     id: 'CH-A17H1-ORD',
-    date: coerceToDate('2017-12-25'),
+    date: new Date('2017-12-25'),
     clientId: 'C5678',
     articles: [
       {
@@ -207,7 +193,7 @@ const orders = [
   },
   {
     id: 'CH-A17H1-ORD',
-    date: coerceToDate('2018-02-17'),
+    date: new Date('2018-02-17'),
     clientId: 'C5678',
     articles: [
       {
@@ -245,8 +231,8 @@ test('Request FRUIT in JAN to FEB', (t) => {
   return kit.request(
     [['CAT-1', 'CAT-2']],
     'FRUIT',
-    coerceToDate('2018-01-05'),
-    coerceToDate('2018-02-05'),
+    new Date('2018-01-05'),
+    new Date('2018-02-05'),
     'interested'
   )
     .then((resultRequest) => {

@@ -2,12 +2,13 @@
   "name": "kit-buying-habits",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "bin/index.js",
   "scripts": {
     "build": "babel src --out-dir bin",
-    "fix_lint": "eslint --fix .",
+    "lint:fix": "eslint --fix .",
     "lint": "eslint .",
-    "test": "yarn run build && ava --verbose tests/**"
+    "test:unit": "ava",
+    "test": "yarn run test:unit && yarn run lint"
   },
   "private": true,
   "author": {
@@ -24,17 +25,18 @@
   },
   "homepage": "https://github.com/craft-ai/kit-buying-habits#readme",
   "devDependencies": {
-    "@types/lodash": "4.14.73",
-    "@types/node": "8.0.22",
-    "@types/seedrandom": "2.4.27",
-    "ava": "0.24.0",
-    "babel-cli": "6.26.0",
-    "babel-core": "6.26.0",
-    "babel-eslint": "8.0.3",
-    "babel-plugin-transform-object-rest-spread": "6.26.0",
-    "babel-preset-env": "1.6.1",
-    "eslint": "4.13.1",
-    "eslint-config-craft-ai": "2.3.0"
+    "@types/lodash": "^4.14.73",
+    "@types/node": "^8.0.22",
+    "@types/seedrandom": "^2.4.27",
+    "ava": "^0.24.0",
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-eslint": "^8.0.3",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babel-register": "^6.26.0",
+    "eslint": "^4.13.1",
+    "eslint-config-craft-ai": "^2.3.0"
   },
   "dependencies": {
     "craft-ai": "1.8.0",
@@ -53,8 +55,9 @@
     "npm": ">= 3.10.8"
   },
   "ava": {
-    "files": [
-      "tests/*.ts"
+    "require": [
+      "babel-register",
+      "./tests/helpers.js"
     ]
   }
 }

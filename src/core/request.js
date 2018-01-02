@@ -5,7 +5,8 @@ import range from 'most-range';
 
 import { decide, Time } from 'craft-ai';
 import { empty, from, fromPromise } from 'most';
-import { getLastOperation, slugify } from './utils';
+import slugify from '../utils/slugify';
+import getLastOperation from '../utils/getLastOperation';
 
 import orderEventConfiguration, { OUTPUT_VALUE_ORDER } from '../configurations/order_events_per_client_and_category';
 

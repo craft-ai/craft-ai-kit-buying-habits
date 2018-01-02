@@ -3,11 +3,11 @@ import buffer from 'most-buffer';
 import debug from 'debug';
 import limiter from 'most-limiter';
 import moment from 'moment-timezone';
-import sample from '../../utils/most-sample';
+import sample from '../utils/most-sample';
 
 import { from, fromPromise } from 'most';
 import { Time } from 'craft-ai';
-import { slugify } from './utils';
+import slugify from '../utils/slugify';
 
 import orderEventConfiguration, {
   OUTPUT_VALUE_NO_ORDER,
