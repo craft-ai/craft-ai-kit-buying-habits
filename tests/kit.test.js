@@ -234,7 +234,7 @@ test('Request BORNIBUS in JAN to FEB', (t) => {
     });
 });
 
-test('Request MEAT in JAN to FEB', (t) => {
+test('Request PONHU in JAN to FEB', (t) => {
   return kit.request(
     [['MEAT', 'CEREAL']],
     'PONHU',

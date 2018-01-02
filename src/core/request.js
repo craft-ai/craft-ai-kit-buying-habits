@@ -85,8 +85,14 @@ function predictAgentsMakingOrders(categoryOrBrand, fromDate, toDate, confidence
     }));
 }
 
-function makeQuery(types, toDate, fromDate, levelOfInterest, intersectionArray, client, clientBase) {
-  return _.reduce(types, (promise, type) => {
+function filterAgentsList(predictedClients, agentsList) {
+  return _.filter(agentsList, (agent) => 
+    _.findIndex(predictedClients.results, (agentResult) => agent.startsWith(agentResult.clientId)) < 0
+  );
+}
+
+function createQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, isIntersection, client) {
+  return (agentsList) => _.reduce(categoryOrBrandList, (promise, type) => {
     return promise
       .then((arrayResults) => {
         return predictAgentsMakingOrders(
@@ -96,7 +102,7 @@ function makeQuery(types, toDate, fromDate, levelOfInterest, intersectionArray, 
           LEVEL_OF_INTEREST[levelOfInterest],
           'Europe/Paris',
           client,
-          clientBase)
+          agentsList)
           .then((result) => {
             arrayResults.push(result);
             return arrayResults;
@@ -114,84 +120,60 @@ function makeQuery(types, toDate, fromDate, levelOfInterest, intersectionArray, 
         finalList.query.push(list.query);
         queryArrayResults.push(list.results.map(({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence })));
       });
-      if (intersectionArray) {
+      if (isIntersection) {
         finalList.results = intersection(queryArrayResults);
       }
       else {
         finalList.results = union(queryArrayResults);
       }
       return finalList;
+    })
+    .then((arrayResults) => {
+      agentsList = filterAgentsList(arrayResults, agentsList);
+
+      return {
+        result: {
+          name: categoryOrBrandList.join('_'),
+          result: arrayResults
+        },
+        agentsList
+      };
     });
 }
 
-function filterAgentsList(predictedClients, agentsList) {
-  return _.filter(agentsList, (agent) => 
-    _.findIndex(predictedClients.results, (agentResult) => agent.startsWith(agentResult.clientId)) < 0
-  );
-}
-
-function generateQueries(categories, brand) {
-  let querylist = _.reduce(categories, (querylist, category) => {
-    let queryParam = {
-      isIntersection: false,
-      query: []
-    };
+function createQueries(brand, categoryGroupList, from, to, levelOfInterest, client) {
+  let queries = _.reduce(categoryGroupList, (queries, categoryGroup) => {
     if (brand) {
-      let categoryTemp = _.clone(category);
-      categoryTemp.unshift(brand);
-      queryParam = {
-        isIntersection: true,
-        query: categoryTemp
-      };
-      querylist.push(queryParam);
+      queries.push(createQuery([brand, ...categoryGroup], from, to, levelOfInterest, true, client));
     }
-    queryParam = {
-      isIntersection: false,
-      query: _.clone(category)
-    };
-    querylist.push(queryParam);
-    return querylist;
+    queries.push(createQuery(categoryGroup, from, to, levelOfInterest, false, client));
+    return queries;
   }, []);
   if (brand) {
-    querylist.push({
-      isIntersection: true,
-      query: [brand]
-    });
+    queries.push(createQuery([brand], from, to, levelOfInterest, true, client));
   }
-  return querylist;
+  return queries;
 }
 
 export default function request(kit) {
   const { client } = kit;
 
-  return (categories, brand, from, to, levelOfInterest) => {
-    // generate list of query
-    const querylist = generateQueries(categories, brand);
+  return (categoryGroupList, brand, from, to, levelOfInterest) => {
+    // Create the queries, ready to be executed
+    const queries = createQueries(brand, categoryGroupList, from, to, levelOfInterest, client);
 
     // Loop on queryList and update clients query result
     return client.listAgents()
       .then((agentsList) => {
-        return _.reduce(querylist, (promise, result) => {
+        return _.reduce(queries, (promise, query) => {
           return promise
-            .then(({ finalResult, agentsList }) => makeQuery(
-              result.query,
-              to,
-              from,
-              levelOfInterest,
-              result.isIntersection,
-              kit.client,
-              agentsList
-            )
-              .then((arrayResults) => {
-                agentsList = filterAgentsList(arrayResults, agentsList);
+            .then(({ finalResult, agentsList }) => 
+              query(agentsList)
+                .then(({ result, agentsList }) => {
+                  finalResult.push(result);
 
-                finalResult.push({
-                  name: result.query.join('_'),
-                  result: arrayResults
-                });
-
-                return { finalResult, agentsList };
-              })
+                  return { finalResult, agentsList };
+                })
             );
         }, Promise.resolve({ finalResult: [], agentsList }));
       })
