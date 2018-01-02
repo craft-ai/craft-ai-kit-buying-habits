@@ -1,34 +1,6 @@
 import Kit from '../src';
 import test from 'ava';
 
-const kit = Kit.create({ token: process.env.CRAFT_TOKEN });
-
-// const clients = [
-//   {
-//     id: 'C1234',
-//     name: 'foo'
-//   },
-//   {
-//     id: 'C5678',
-//     name: 'bar'
-//   }
-// ];
-
-// const categories =  [
-//   {
-//     id: 'CAT-1',
-//     name: 'category 1'
-//   },
-//   {
-//     id: 'CAT-2',
-//     name: 'category 2'
-//   },
-//   {
-//     id: 'CAT-3',
-//     name: 'category 3'
-//   }
-// ];
-
 const orders = [
   {
     id: 'CH-A13H1-ORD',
@@ -221,14 +193,17 @@ const orders = [
   }
 ];
 
-test.before((t) => kit.update(orders, 'all'));
+test.beforeEach((t) => {
+  t.context.kit = Kit.create({ token: process.env.CRAFT_TOKEN });
+  return t.context.kit.destroy().then(() => t.context.kit.update(orders, 'all'));
+});
 
-test.after.always('guaranteed cleanup', (t) => {
-  return kit.destroy();
+test.afterEach.always('guaranteed cleanup', (t) => {
+  return t.context.kit.destroy();
 });
 
 test('Request FRUIT in JAN to FEB', (t) => {
-  return kit.request(
+  return t.context.kit.request(
     [['CAT-1', 'CAT-2']],
     'FRUIT',
     new Date('2018-01-05'),
