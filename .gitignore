@@ -1,0 +1,5 @@
+# Build artifacts
+/bin/
+
+# Temporary test files
+/.env

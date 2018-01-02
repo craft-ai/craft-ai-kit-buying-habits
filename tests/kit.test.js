@@ -1,55 +1,11 @@
-require('dotenv').config();
-
-import * as moment from 'moment-timezone';
-
-import Kit from '../src/kit';
+import _ from 'lodash';
+import Kit from '../src';
 import test from 'ava';
-
-import { Intelware } from '../typings/index';
-
-const kit = Kit.create({ token: process.env.CRAFT_TOKEN as string });
-
-function coerceToDate(dateStr) {
-  if (!dateStr) {
-    return undefined;
-  }
-  const m = moment(dateStr, "YYYY-MM-DD");
-  if (!m.isValid()) {
-    throw new Error(`'${dateStr}' is not a valid date, use 'YYYY-MM-DD'.`);
-  }
-  return m.toDate();
-}
-
-const clients = [
-  {
-    id: 'C1234',
-    name: 'foo'
-  },
-  {
-    id: 'C5678',
-    name: 'bar'
-  }
-];
-
-const categories =  [
-  {
-    id: 'CAT-1',
-    name: 'category 1'
-  },
-  {
-    id: 'CAT-2',
-    name: 'category 2'
-  },
-  {
-    id: 'CAT-3',
-    name: 'category 3'
-  }
-];
 
 const orders = [
   {
     id: 'CH-A13H1-ORD',
-    date: coerceToDate('2017-12-01'),
+    date: new Date('2017-12-01'),
     clientId: 'C1234',
     articles: [
       {
@@ -70,7 +26,7 @@ const orders = [
   },
   {
     id: 'CH-A13H1-ORD',
-    date: coerceToDate('2017-12-05'),
+    date: new Date('2017-12-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -98,7 +54,7 @@ const orders = [
   },
   {
     id: 'CH-A14H1-ORD',
-    date: coerceToDate('2018-01-05'),
+    date: new Date('2018-01-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -126,7 +82,7 @@ const orders = [
   },
   {
     id: 'CH-A15H1-ORD',
-    date: coerceToDate('2018-02-05'),
+    date: new Date('2018-02-05'),
     clientId: 'C1234',
     articles: [
       {
@@ -154,7 +110,7 @@ const orders = [
   },
   {
     id: 'CH-A16H1-ORD',
-    date: coerceToDate('2017-12-05'),
+    date: new Date('2017-12-05'),
     clientId: 'C5678',
     articles: [
       {
@@ -182,7 +138,7 @@ const orders = [
   },
   {
     id: 'CH-A17H1-ORD',
-    date: coerceToDate('2017-12-25'),
+    date: new Date('2017-12-25'),
     clientId: 'C5678',
     articles: [
       {
@@ -210,7 +166,7 @@ const orders = [
   },
   {
     id: 'CH-A17H1-ORD',
-    date: coerceToDate('2018-02-17'),
+    date: new Date('2018-02-17'),
     clientId: 'C5678',
     articles: [
       {
@@ -238,36 +194,39 @@ const orders = [
   }
 ];
 
-test.before((t) => kit.update(orders, 'all'));
+test.beforeEach((t) => {
+  t.context.kit = Kit.create({ token: process.env.CRAFT_TOKEN });
+  return t.context.kit.destroy().then(() => t.context.kit.update(orders, 'all'));
+});
 
-test.after.always('guaranteed cleanup', (t) => {
-	return kit.destroy();
+test.afterEach.always('guaranteed cleanup', (t) => {
+  return t.context.kit.destroy();
 });
 
 test('Request FRUIT in JAN to FEB', (t) => {
-  return kit.request(
+  return t.context.kit.request(
     [['CAT-1', 'CAT-2']],
     'FRUIT',
-    coerceToDate('2018-01-05'),
-    coerceToDate('2018-02-05'),
+    new Date('2018-01-05'),
+    new Date('2018-02-05'),
     'interested'
   )
-  .then((resultRequest) => {
-    t.is(resultRequest.length, 3);
-    t.is(resultRequest[0].name, 'FRUIT_CAT-1_CAT-2');
-    t.is(resultRequest[1].name, 'CAT-1_CAT-2');
-    t.is(resultRequest[2].name, 'FRUIT');
-    t.deepEqual(resultRequest[0].result.results, [
-      {
-        clientId: 'C1234',
-        confidence: 0.6774609088897705
-      },
-      {
-        clientId: 'C5678',
-        confidence: 0.6774609088897705
-      }
-    ]);
-    t.deepEqual(resultRequest[1].result.results, []);
-    t.deepEqual(resultRequest[2].result.results, []);
-  });
+    .then((resultRequest) => {
+      t.is(resultRequest.length, 3);
+      t.is(resultRequest[0].name, 'FRUIT_CAT-1_CAT-2');
+      t.is(resultRequest[1].name, 'CAT-1_CAT-2');
+      t.is(resultRequest[2].name, 'FRUIT');
+      t.deepEqual(_.sortBy(resultRequest[0].result.results, ['clientId']), [
+        {
+          clientId: 'C1234',
+          confidence: 0.6774609088897705
+        },
+        {
+          clientId: 'C5678',
+          confidence: 0.6774609088897705
+        }
+      ]);
+      t.deepEqual(resultRequest[1].result.results, []);
+      t.deepEqual(resultRequest[2].result.results, []);
+    });
 });

@@ -1,28 +1,17 @@
-import * as _ from 'lodash';
-import * as moment from 'moment-timezone';
+import _ from 'lodash';
+import moment from 'moment-timezone';
 
 import orderEventConfiguration from './configurations/order_events_per_client_and_category';
 
-import { Intelware } from '../../typings/index';
+const timeQuantum = orderEventConfiguration.time_quantum;
 
-interface Measure {
-  clientId: string
-  distance: number
-  date: Date
-  distanceFrom: number
-  distanceTo: number
-  confidence?: number
-}
-
-const timeQuantum = orderEventConfiguration.time_quantum as number;
-
-export function validate(orders: Intelware.Type.Order[], type: string) {
-  return (data: Intelware.QueryResults) => {
+export function validate(orders, type) {
+  return (data) => {
     const { query, results } = data;
     const { categoryId, from, to } = query;
     const measures = _(orders)
       .filter(({ articles }) => articles.some((article) => article[type] === categoryId))
-      .map<Measure>((order) => {
+      .map((order) => {
         const timestamp = moment.tz(order.date, 'Europe/Paris').startOf('day').unix();
         const distanceFrom = timestamp - from;
         const distanceTo = timestamp - to;
@@ -36,17 +25,17 @@ export function validate(orders: Intelware.Type.Order[], type: string) {
         };
       })
       .groupBy('clientId')
-      .mapValues((group) => _.sortBy(group as any, 'distance')[0] as Measure)
-      .value();
+      .mapValues((group) => _.sortBy(group, 'distance')[0])
 
+      .value();
     return results
-      .map((result) => ({ ...measures[result.clientId], ...result } as Measure))
+      .map((result) => ({ ...measures[result.clientId], ...result }))
       .concat(_.filter(measures, ({ distance, clientId }) =>
         distance === 0 && results.every((result) => clientId !== result.clientId)));
   };
 }
 
-export function print (measure: Measure) {
+export function print(measure) {
   if (!measure.confidence) {
     return console.log(`  \x1b[31m⚡  ${measure.clientId} ${measure.date} (not found)\x1b[0m`);
   }
@@ -61,7 +50,7 @@ export function print (measure: Measure) {
   console.log(`  \x1b[33m⚠️  ${measure.clientId} ${measure.date} (-${formatDistance(measure.distanceFrom)}, +${formatDistance(measure.distanceTo)}, ${confidence}%)\x1b[0m`);
 }
 
-export function formatDistance(distance: number) {
+export function formatDistance(distance) {
   return Math.ceil(Math.abs(distance) / timeQuantum);
 }
 

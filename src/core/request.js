@@ -1,41 +1,25 @@
-import * as _ from 'lodash';
-import * as moment from 'moment-timezone';
-
+import _ from 'lodash';
 import limiter from 'most-limiter';
+import moment from 'moment-timezone';
 import range from 'most-range';
 
-import { Time, decide } from 'craft-ai';
-import { Stream, empty, from, fromPromise } from 'most';
+import { decide, Time } from 'craft-ai';
+import { empty, from, fromPromise } from 'most';
+import slugify from '../utils/slugify';
+import getLastOperation from '../utils/getLastOperation';
 
-import { getLastOperation, slugify } from './utils';
-
-import orderEventConfiguration, {
-  OUTPUT_VALUE_ORDER,
-  OUTPUT_VALUE_NO_ORDER,
-  ContextOperation,
-  Properties
-} from '../configurations/order_events_per_client_and_category';
-
-// type
-import { Intelware } from '../../../typings/index';
-import * as CraftAi from 'craft-ai';
+import orderEventConfiguration, { OUTPUT_VALUE_ORDER } from '../configurations/order_events_per_client_and_category';
 
 const LEVEL_OF_INTEREST = {
   'interested': 0.01,
   'fan': 0.85,
   'super_fan': 0.90
-}
+};
 
-interface QueryParams {
-  isIntersection: boolean
-  query: string[]
-}
+const timeQuantum = orderEventConfiguration.time_quantum;
 
-const timeQuantum = orderEventConfiguration.time_quantum as number;
-
-function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
-                   intersectionArray: boolean, client: CraftAi.Client, clientBase: string[]) {
-  return _.reduce(types, (promise: Promise<Intelware.QueryResults[]>, type) => {
+function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, client, clientBase) {
+  return _.reduce(types, (promise, type) => {
     const categoryId = slugify(' ', type);
     const timestamp = moment.tz(dateFrom, 'Europe/Paris').startOf('day').unix();
     const to = dateTo
@@ -47,14 +31,14 @@ function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
         .filter((agentId) => agentId.endsWith(categoryId))
         .thru(limiter(1000 / 50 * 2)) // Match the rate limiting of craft ai (2 requests per agent)
         .chain((agentId) => fromPromise(client
-          .getAgentContextOperations<Properties>(agentId)
+          .getAgentContextOperations(agentId)
           .then((operations) => {
             if (operations.length < 2) {
               // Not enough information, thus always predicting `ORDER`
               return empty();
             }
 
-            const lastTimestamp = (_.last(operations) as ContextOperation).timestamp;
+            const lastTimestamp = (_.last(operations)).timestamp;
             const treeTimestamp = timestamp > lastTimestamp ? lastTimestamp : timestamp;
             const lastOrder = getLastOperation(operations, treeTimestamp);
 
@@ -65,7 +49,7 @@ function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
 
             let lastOrderTimestamp = moment.tz(lastOrder.timestamp * 1000, 'Europe/Paris');
 
-            return client.getAgentDecisionTree<Properties>(agentId, treeTimestamp)
+            return client.getAgentDecisionTree(agentId, treeTimestamp)
               .then((tree) => range(timestamp, to, timeQuantum)
                 .map((timestamp) => {
                   const time = moment.tz(timestamp * 1000, 'Europe/Paris');
@@ -74,7 +58,7 @@ function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
 
                   if (decision.predicted_value === OUTPUT_VALUE_ORDER) {
                     lastOrderTimestamp = time;
-                    return decision.confidence as number;
+                    return decision.confidence;
                   }
                   return 0;
                 })
@@ -85,7 +69,7 @@ function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
           }))
         )
         .join()
-        .reduce<Intelware.QueryResult[]>((array, value) => [...array, value], [])
+        .reduce((array, value) => [...array, value], [])
         .then((results) => {
           arrayResults.push({
             query: { categoryId: categoryId, from: timestamp, to },
@@ -93,76 +77,76 @@ function makeQuery(types: string[], dateTo, dateFrom, levelOfInterest,
           });
           return arrayResults;
         }));
-  }, Promise.resolve([] as Intelware.QueryResults[]))
-  .then<Intelware.QueryArrayResults>((listsResult) => {
-    // remove multiple occurences
-    let finalList = {
-      query: [],
-      results: []
-    } as Intelware.QueryArrayResults;
-    let queryArrayResults = [] as Intelware.QueryResult[][];
-    _.forEach(listsResult, (list: Intelware.QueryResults) => {
-      finalList.query.push(list.query);
-      queryArrayResults.push(list.results);
+  }, Promise.resolve([]))
+    .then((listsResult) => {
+      // remove multiple occurences
+      let finalList = {
+        query: [],
+        results: []
+      };
+      let queryArrayResults = [];
+      _.forEach(listsResult, (list) => {
+        finalList.query.push(list.query);
+        queryArrayResults.push(list.results);
+      });
+      if (intersectionArray) {
+        finalList.results = intersection(queryArrayResults);
+      }
+      else {
+        finalList.results = union(queryArrayResults);
+      }
+      return finalList;
     });
-    if (intersectionArray) {
-      finalList.results = intersection(queryArrayResults);
-    }
-    else {
-      finalList.results = union(queryArrayResults);
-    }
-    return finalList;
-  });
 }
 
 
-export default function request(kit: Intelware.KitInternal) {
+export default function request(kit) {
   const { client } = kit;
 
   return (categories, brand, from, to, levelOfInterest) => {
     // generate list of query
-    let querylist = [] as QueryParams[];
+    let querylist = [];
     _.forEach(categories, (category) => {
       let queryParam = {
         isIntersection: false,
-        query: [] as string[]
-      } as QueryParams;
+        query: []
+      };
       if (brand) {
         let categoryTemp = _.clone(category);
         categoryTemp.unshift(brand);
         queryParam = {
           isIntersection: true,
           query: categoryTemp
-        } as QueryParams;
+        };
         querylist.push(queryParam);
       }
       queryParam = {
         isIntersection: false,
         query: _.clone(category)
-      } as QueryParams;
+      };
       querylist.push(queryParam);
     });
     if (brand) {
       querylist.push({
         isIntersection: true,
         query: [brand]
-      } as QueryParams);
+      });
     }
 
     // Loop on queryList and update clients query result
     return client.listAgents()
-      .then((agentsList: string[]) => {
-        return _.reduce(querylist, (promise: Promise<Intelware.RequestResult[]>, result: QueryParams) => {
+      .then((agentsList) => {
+        return _.reduce(querylist, (promise, result) => {
           return promise
             .then((finalResult) => makeQuery(
-                result.query,
-                to,
-                from,
-                levelOfInterest,
-                result.isIntersection,
-                kit.client,
-                agentsList
-              )
+              result.query,
+              to,
+              from,
+              levelOfInterest,
+              result.isIntersection,
+              kit.client,
+              agentsList
+            )
               .then((arrayResults) => {
                 // remove agents from agentsList to avoid double
                 _.remove(agentsList, (agent) => {
@@ -179,12 +163,12 @@ export default function request(kit: Intelware.KitInternal) {
                 return finalResult;
               })
             );
-        }, Promise.resolve([] as Intelware.RequestResult[]));
-    });
+        }, Promise.resolve([]));
+      });
   };
-};
+}
 
-function union(arrayOfArray: Intelware.QueryResult[][]) {
+function union(arrayOfArray) {
   let ref = _.head(arrayOfArray);
   let comparisonArray = _.drop(arrayOfArray);
 
@@ -199,10 +183,10 @@ function union(arrayOfArray: Intelware.QueryResult[][]) {
     element.confidence = maxConfidence;
     result.push(element);
     return result;
-  }, [] as Intelware.QueryResult[]);
+  }, []);
 }
 
-function intersection(arrayOfArray: Intelware.QueryResult[][]) {
+function intersection(arrayOfArray) {
   let ref = _.head(arrayOfArray);
   let comparisonArray = _.drop(arrayOfArray);
 
@@ -221,5 +205,5 @@ function intersection(arrayOfArray: Intelware.QueryResult[][]) {
       result.push(element);
     }
     return result;
-  }, [] as Intelware.QueryResult[]);
+  }, []);
 }
