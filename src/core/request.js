@@ -2,6 +2,7 @@ import _ from 'lodash';
 import limiter from 'most-limiter';
 import moment from 'moment-timezone';
 import range from 'most-range';
+import { first } from 'most-nth';
 
 import { decide, Time } from 'craft-ai';
 import { empty, from, fromPromise } from 'most';
@@ -17,6 +18,32 @@ const LEVEL_OF_INTEREST = {
 };
 
 const timeQuantum = orderEventConfiguration.time_quantum;
+
+function predictNextOrder(decisionTree, from, to, lastOrderTimestamp, confidenceThreshold, tz) {
+  const tq = decisionTree.configuration.time_quantum;
+  return range(from, to, tq)
+    .loop((lastOrderDatetime, timestamp) => {
+      const datetime = moment.tz(timestamp * 1000, tz);
+      const periodsSinceLastEvent = Math.floor(datetime.diff(lastOrderDatetime) / 1000 / tq);
+      const decision = decide(decisionTree, { periodsSinceLastEvent }, Time(datetime)).output.order;
+
+      if (decision.predicted_value === OUTPUT_VALUE_ORDER) {
+        return {
+          value: decision,
+          seed: datetime
+        };
+      }
+      return {
+        value: {
+          ...decision,
+          confidence: 0
+        },
+        seed: lastOrderDatetime
+      };
+    }, moment.tz(lastOrderTimestamp * 1000, tz))
+    .skipWhile(({ confidence }) => confidence <= confidenceThreshold)
+    .thru(first);
+}
 
 function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, client, clientBase) {
   return _.reduce(types, (promise, type) => {
@@ -35,7 +62,7 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
           .then((operations) => {
             if (operations.length < 2) {
               // Not enough information, thus always predicting `ORDER`
-              return empty();
+              return;
             }
 
             const lastTimestamp = (_.last(operations)).timestamp;
@@ -44,31 +71,15 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
 
             if (!lastOrder) {
               // Unable to decide with no past order
-              return empty();
+              return;
             }
 
-            let lastOrderTimestamp = moment.tz(lastOrder.timestamp * 1000, 'Europe/Paris');
-
             return client.getAgentDecisionTree(agentId, treeTimestamp)
-              .then((tree) => range(timestamp, to, timeQuantum)
-                .map((timestamp) => {
-                  const time = moment.tz(timestamp * 1000, 'Europe/Paris');
-                  const periodsSinceLastEvent = Math.floor(time.diff(lastOrderTimestamp) / 1000 / timeQuantum);
-                  const decision = decide(tree, { periodsSinceLastEvent }, Time(time)).output.order;
-
-                  if (decision.predicted_value === OUTPUT_VALUE_ORDER) {
-                    lastOrderTimestamp = time;
-                    return decision.confidence;
-                  }
-                  return 0;
-                })
-                .skipWhile((confidence) => confidence <= LEVEL_OF_INTEREST[levelOfInterest])
-                .take(1)
-                .map((confidence) => ({ clientId: agentId.split('-')[0], confidence }))
-              );
+              .then((tree) => predictNextOrder(tree, timestamp, to, lastOrder.timestamp, LEVEL_OF_INTEREST[levelOfInterest], 'Europe/Paris'))
+              .then(({ confidence }) => ({ clientId: agentId.split('-')[0], confidence }));
           }))
         )
-        .join()
+        .filter((value) => !!value)
         .reduce((array, value) => [...array, value], [])
         .then((results) => {
           arrayResults.push({

@@ -45,10 +45,11 @@
     "dotenv": "4.0.0",
     "lodash": "4.17.4",
     "moment-timezone": "0.5.13",
-    "most": "1.6.1",
-    "most-buffer": "0.0.9",
-    "most-limiter": "0.0.9",
-    "most-range": "0.0.9",
+    "most": "1.7",
+    "most-buffer": "0.0.10",
+    "most-limiter": "0.0.10",
+    "most-nth": "0.0.10",
+    "most-range": "0.0.10",
     "seedrandom": "2.4.3"
   },
   "engines": {

@@ -216,6 +216,7 @@ test('Request FRUIT in JAN to FEB', (t) => {
       t.is(resultRequest[0].name, 'FRUIT_CAT-1_CAT-2');
       t.is(resultRequest[1].name, 'CAT-1_CAT-2');
       t.is(resultRequest[2].name, 'FRUIT');
+      t.log(JSON.stringify(resultRequest, null, 2));
       t.deepEqual(_.sortBy(resultRequest[0].result.results, ['clientId']), [
         {
           clientId: 'C1234',
