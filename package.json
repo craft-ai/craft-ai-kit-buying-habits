@@ -8,6 +8,7 @@
     "lint:fix": "eslint --fix .",
     "lint": "eslint .",
     "test:unit": "ava",
+    "test:watch": "ava --watch",
     "test": "yarn run test:unit && yarn run lint"
   },
   "private": true,

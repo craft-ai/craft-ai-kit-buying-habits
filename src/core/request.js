@@ -99,39 +99,43 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
     });
 }
 
+function generateQueries(categories, brand) {
+  let querylist = [];
+  _.forEach(categories, (category) => {
+    let queryParam = {
+      isIntersection: false,
+      query: []
+    };
+    if (brand) {
+      let categoryTemp = _.clone(category);
+      categoryTemp.unshift(brand);
+      queryParam = {
+        isIntersection: true,
+        query: categoryTemp
+      };
+      querylist.push(queryParam);
+    }
+    queryParam = {
+      isIntersection: false,
+      query: _.clone(category)
+    };
+    querylist.push(queryParam);
+  });
+  if (brand) {
+    querylist.push({
+      isIntersection: true,
+      query: [brand]
+    });
+  }
+  return querylist;
+}
 
 export default function request(kit) {
   const { client } = kit;
 
   return (categories, brand, from, to, levelOfInterest) => {
     // generate list of query
-    let querylist = [];
-    _.forEach(categories, (category) => {
-      let queryParam = {
-        isIntersection: false,
-        query: []
-      };
-      if (brand) {
-        let categoryTemp = _.clone(category);
-        categoryTemp.unshift(brand);
-        queryParam = {
-          isIntersection: true,
-          query: categoryTemp
-        };
-        querylist.push(queryParam);
-      }
-      queryParam = {
-        isIntersection: false,
-        query: _.clone(category)
-      };
-      querylist.push(queryParam);
-    });
-    if (brand) {
-      querylist.push({
-        isIntersection: true,
-        query: [brand]
-      });
-    }
+    const querylist = generateQueries(categories, brand);
 
     // Loop on queryList and update clients query result
     return client.listAgents()
