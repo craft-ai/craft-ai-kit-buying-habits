@@ -213,13 +213,13 @@ test('Request BORNIBUS in JAN to FEB', (t) => {
     new Date('2018-02-05'),
     'interested'
   )
-    .then((resultRequest) => {
-      t.is(resultRequest.length, 3);
-      t.is(resultRequest[0].name, 'BORNIBUS_FRUIT_VEGETABLE');
-      t.is(resultRequest[1].name, 'FRUIT_VEGETABLE');
-      t.is(resultRequest[2].name, 'BORNIBUS');
-      t.log(JSON.stringify(resultRequest, null, 2));
-      t.deepEqual(_.sortBy(resultRequest[0].result.results, ['clientId']), [
+    .then((result) => {
+      t.is(result.length, 3);
+      t.is(result[0].query, 'BORNIBUS_FRUIT_VEGETABLE');
+      t.is(result[1].query, 'FRUIT_VEGETABLE');
+      t.is(result[2].query, 'BORNIBUS');
+      t.log(JSON.stringify(result, null, 2));
+      t.deepEqual(_.sortBy(result[0].clients, ['clientId']), [
         {
           clientId: 'C1234',
           confidence: 0.6774609088897705
@@ -229,8 +229,8 @@ test('Request BORNIBUS in JAN to FEB', (t) => {
           confidence: 0.6774609088897705
         }
       ]);
-      t.deepEqual(resultRequest[1].result.results, []);
-      t.deepEqual(resultRequest[2].result.results, []);
+      t.deepEqual(result[1].clients, []);
+      t.deepEqual(result[2].clients, []);
     });
 });
 
@@ -242,13 +242,13 @@ test('Request PONHU in JAN to FEB', (t) => {
     new Date('2018-02-05'),
     'interested'
   )
-    .then((resultRequest) => {
-      t.is(resultRequest.length, 3);
-      t.is(resultRequest[0].name, 'PONHU_MEAT_CEREAL');
-      t.is(resultRequest[1].name, 'MEAT_CEREAL');
-      t.is(resultRequest[2].name, 'PONHU');
-      t.deepEqual(resultRequest[0].result.results, []);
-      t.deepEqual(resultRequest[1].result.results, []);
-      t.deepEqual(resultRequest[2].result.results, []);
+    .then((result) => {
+      t.is(result.length, 3);
+      t.is(result[0].query, 'PONHU_MEAT_CEREAL');
+      t.is(result[1].query, 'MEAT_CEREAL');
+      t.is(result[2].query, 'PONHU');
+      t.deepEqual(result[0].clients, []);
+      t.deepEqual(result[1].clients, []);
+      t.deepEqual(result[2].clients, []);
     });
 });

@@ -1,8 +1,9 @@
 import _ from 'lodash';
 import limiter from 'most-limiter';
+import buffer from 'most-buffer';
 import moment from 'moment-timezone';
 import range from 'most-range';
-import { first } from 'most-nth';
+import { first, last } from 'most-nth';
 
 import { decide, Time } from 'craft-ai';
 import * as most from 'most';
@@ -56,6 +57,7 @@ function predictAgentsMakingOrders(categoryOrBrand, fromDate, toDate, confidence
     .filter((agentId) => agentId.endsWith(categoryOrBrandSlug)) // Filtering the agents we want to make predictions on
     .thru(limiter(1000 / 50 * 2)) // Match the rate limiting of craft ai (2 requests per agent)
     .chain((agentId) => most.fromPromise(client
+      // TODO: We just need the last operation to be able to compute the initial lastOrder timestamp.
       .getAgentContextOperations(agentId)
       .then((operations) => {
         if (operations.length < 2) {
@@ -78,11 +80,8 @@ function predictAgentsMakingOrders(categoryOrBrand, fromDate, toDate, confidence
       }))
     )
     .filter((value) => !!value)
-    .reduce((array, value) => [...array, value], [])
-    .then((results) => ({
-      query: { categoryOrBrand, from: fromTimestamp, to: toTimestamp },
-      results
-    }));
+    .thru(buffer())
+    .thru(last);
 }
 
 function filterAgentsList(predictedClients, agentsList) {
@@ -92,51 +91,33 @@ function filterAgentsList(predictedClients, agentsList) {
 }
 
 function createQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, isIntersection, client) {
-  return (agentsList) => _.reduce(categoryOrBrandList, (promise, type) => {
+  return (potentialAgentsList) => _.reduce(categoryOrBrandList, (promise, categoryOrBrand) => {
     return promise
-      .then((arrayResults) => {
+      .then((predictedAgentsListList) => {
         return predictAgentsMakingOrders(
-          type, 
+          categoryOrBrand, 
           fromDate, 
           toDate, 
           LEVEL_OF_INTEREST[levelOfInterest],
           'Europe/Paris',
           client,
-          agentsList)
-          .then((result) => {
-            arrayResults.push(result);
-            return arrayResults;
+          potentialAgentsList)
+          .then((predictedAgentsList) => {
+            predictedAgentsListList.push(predictedAgentsList);
+            return predictedAgentsListList;
           });
       });
   }, Promise.resolve([]))
-    .then((listsResult) => {
-      // remove multiple occurences
-      let finalList = {
-        query: [],
-        results: []
-      };
-      let queryArrayResults = [];
-      _.forEach(listsResult, (list) => {
-        finalList.query.push(list.query);
-        queryArrayResults.push(list.results.map(({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence })));
-      });
-      if (isIntersection) {
-        finalList.results = intersection(queryArrayResults);
-      }
-      else {
-        finalList.results = union(queryArrayResults);
-      }
-      return finalList;
-    })
-    .then((arrayResults) => {
-      agentsList = filterAgentsList(arrayResults, agentsList);
-
+    .then((predictedAgentsListList) => {
+      const predictedAgentsList = isIntersection ? intersection(predictedAgentsListList) : union(predictedAgentsListList);
+      const predictedClientsList = _.map(predictedAgentsList, ({ agentId, confidence }) => ({ clientId: agentId.split('-')[0], confidence }));
+      const remainingAgentsList = _.filter(potentialAgentsList, (agent) => 
+        _.findIndex(predictedClientsList, ({ clientId }) => agent.startsWith(clientId)) < 0
+      );
       return {
-        result: {
-          name: categoryOrBrandList.join('_'),
-          result: arrayResults
-        },
-        agentsList
+        query: categoryOrBrandList.join('_'),
+        clients: predictedClientsList,
+        remainingAgentsList
       };
     });
 }
@@ -144,6 +125,7 @@ function createQuery(categoryOrBrandList, fromDate, toDate, levelOfInterest, isI
 function createQueries(brand, categoryGroupList, from, to, levelOfInterest, client) {
   let queries = _.reduce(categoryGroupList, (queries, categoryGroup) => {
     if (brand) {
+      // TODO This computes an intersection of all the brand + each category group, wich is not what we want now.
       queries.push(createQuery([brand, ...categoryGroup], from, to, levelOfInterest, true, client));
     }
     queries.push(createQuery(categoryGroup, from, to, levelOfInterest, false, client));
@@ -167,17 +149,17 @@ export default function request(kit) {
       .then((agentsList) => {
         return _.reduce(queries, (promise, query) => {
           return promise
-            .then(({ finalResult, agentsList }) => 
-              query(agentsList)
-                .then(({ result, agentsList }) => {
-                  finalResult.push(result);
+            .then(({ result, remainingAgentsList }) => 
+              query(remainingAgentsList)
+                .then(({ query, clients, remainingAgentsList }) => {
+                  result.push({ query, clients });
 
-                  return { finalResult, agentsList };
+                  return { result, remainingAgentsList };
                 })
             );
-        }, Promise.resolve({ finalResult: [], agentsList }));
+        }, Promise.resolve({ result: [], remainingAgentsList: agentsList }));
       })
-      .then(({ finalResult }) => finalResult);
+      .then(({ result }) => result);
   };
 }
 
