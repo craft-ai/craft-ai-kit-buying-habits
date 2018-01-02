@@ -5,7 +5,7 @@ import range from 'most-range';
 import { first } from 'most-nth';
 
 import { decide, Time } from 'craft-ai';
-import { empty, from, fromPromise } from 'most';
+import * as most from 'most';
 import slugify from '../utils/slugify';
 import getLastOperation from '../utils/getLastOperation';
 
@@ -54,10 +54,10 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
       : timestamp + timeQuantum;
 
     return promise
-      .then((arrayResults) => from(clientBase)
+      .then((arrayResults) => most.from(clientBase)
         .filter((agentId) => agentId.endsWith(categoryId))
         .thru(limiter(1000 / 50 * 2)) // Match the rate limiting of craft ai (2 requests per agent)
-        .chain((agentId) => fromPromise(client
+        .chain((agentId) => most.fromPromise(client
           .getAgentContextOperations(agentId)
           .then((operations) => {
             if (operations.length < 2) {
@@ -110,9 +110,13 @@ function makeQuery(types, dateTo, dateFrom, levelOfInterest, intersectionArray, 
     });
 }
 
+function filterAgentsList(predictedClients, agentsList) {
+  return _.filter(agentsList, (agent) => 
+    _.findIndex(predictedClients.results, (agentResult) => agent.startsWith(agentResult.clientId)) < 0
+  );
+}
 function generateQueries(categories, brand) {
-  let querylist = [];
-  _.forEach(categories, (category) => {
+  let querylist = _.reduce(categories, (querylist, category) => {
     let queryParam = {
       isIntersection: false,
       query: []
@@ -131,7 +135,8 @@ function generateQueries(categories, brand) {
       query: _.clone(category)
     };
     querylist.push(queryParam);
-  });
+    return querylist;
+  }, []);
   if (brand) {
     querylist.push({
       isIntersection: true,
@@ -153,7 +158,7 @@ export default function request(kit) {
       .then((agentsList) => {
         return _.reduce(querylist, (promise, result) => {
           return promise
-            .then((finalResult) => makeQuery(
+            .then(({ finalResult, agentsList }) => makeQuery(
               result.query,
               to,
               from,
@@ -163,23 +168,19 @@ export default function request(kit) {
               agentsList
             )
               .then((arrayResults) => {
-                // remove agents from agentsList to avoid double
-                _.remove(agentsList, (agent) => {
-                  return _.findIndex(arrayResults.results, (agentResult) => {
-                    return agent.startsWith(agentResult.clientId);
-                  }) != -1;
-                });
+                agentsList = filterAgentsList(arrayResults, agentsList);
 
                 finalResult.push({
                   name: result.query.join('_'),
                   result: arrayResults
                 });
 
-                return finalResult;
+                return { finalResult, agentsList };
               })
             );
-        }, Promise.resolve([]));
-      });
+        }, Promise.resolve({ finalResult: [], agentsList }));
+      })
+      .then(({ finalResult }) => finalResult);
   };
 }
 
