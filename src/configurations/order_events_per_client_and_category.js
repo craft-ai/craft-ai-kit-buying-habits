@@ -12,7 +12,7 @@ export const configuration = {
     month: {
       type: 'month_of_year'
     },
-    periodsSinceLastEvent: {
+    periodsSinceLastEvent: { // Number of time quantums since the last order
       type: 'continuous'
     },
     // lastOrderTotal: { type: 'continuous' },

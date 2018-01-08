@@ -10,15 +10,15 @@ const orders = [
     articles: [
       {
         productId: 'APPLE-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 12,
         price: 40
       },
       {
         productId: 'BANANA-4',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 4,
         price: 12
       }
@@ -31,22 +31,22 @@ const orders = [
     articles: [
       {
         productId: 'APPLE-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 12,
         price: 40
       },
       {
         productId: 'BANANA-4',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 4,
         price: 12
       },
       {
         productId: 'BEETROOT-150',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'ARTIGO',
+        categoryId: 'ROOT',
         quantity: 1,
         price: 3.50
       }
@@ -59,22 +59,22 @@ const orders = [
     articles: [
       {
         productId: 'TOMATO-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-1',
+        brand: 'BORNIBUS',
+        categoryId: 'VEGETABLE',
         quantity: 5,
         price: 32.75
       },
       {
         productId: 'BANANA-4',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 14,
         price: 17.85
       },
       {
         productId: 'POTATO-190',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'ARTIGO',
+        categoryId: 'ROOT',
         quantity: 250,
         price: 120
       }
@@ -87,22 +87,22 @@ const orders = [
     articles: [
       {
         productId: 'CAROTT-8',
-        brand: 'VEGETABLE',
-        categoryId: 'CAT-1',
+        brand: 'ARTIGO',
+        categoryId: 'VEGETABLE',
         quantity: 82,
         price: 910.32
       },
       {
         productId: 'ORANGE-891',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 9,
         price: 102.89
       },
       {
         productId: 'GINSENG-1',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'EPINOOS',
+        categoryId: 'ROOT',
         quantity: 8,
         price: 52.24
       }
@@ -115,22 +115,22 @@ const orders = [
     articles: [
       {
         productId: 'APPLE-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 82,
         price: 910.32
       },
       {
         productId: 'ORANGE-891',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 9,
         price: 102.89
       },
       {
         productId: 'GINSENG-1',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'EPINOOS',
+        categoryId: 'ROOT',
         quantity: 8,
         price: 52.24
       }
@@ -143,22 +143,22 @@ const orders = [
     articles: [
       {
         productId: 'APPLE-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 82,
         price: 910.32
       },
       {
         productId: 'ORANGE-891',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 9,
         price: 102.89
       },
       {
         productId: 'GINSENG-1',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'EPINOOS',
+        categoryId: 'ROOT',
         quantity: 8,
         price: 52.24
       }
@@ -171,22 +171,22 @@ const orders = [
     articles: [
       {
         productId: 'APPLE-1',
-        brand: 'FRUIT',
-        categoryId: 'CAT-2',
+        brand: 'BORNIBUS',
+        categoryId: 'FRUIT',
         quantity: 91,
         price: 901.32
       },
       {
         productId: 'CAROTT-891',
-        brand: 'VEGETABLE',
-        categoryId: 'CAT-1',
+        brand: 'ARTIGO',
+        categoryId: 'VEGETABLE',
         quantity: 3,
         price: 76.89
       },
       {
         productId: 'GINSENG-1',
-        brand: 'ROOT',
-        categoryId: 'CAT-3',
+        brand: 'EPINOOS',
+        categoryId: 'ROOT',
         quantity: 8,
         price: 52.24
       }
@@ -194,29 +194,33 @@ const orders = [
   }
 ];
 
-test.beforeEach((t) => {
-  t.context.kit = Kit.create({ token: process.env.CRAFT_TOKEN });
-  return t.context.kit.destroy().then(() => t.context.kit.update(orders, 'all'));
+let kit;
+
+test.before((t) => {
+  kit = Kit.create({ token: process.env.CRAFT_TOKEN });
+  return kit.destroy().then(() => kit.update(orders, 'all'));
 });
 
-test.afterEach.always('guaranteed cleanup', (t) => {
-  return t.context.kit.destroy();
+test.after.always('guaranteed cleanup', (t) => {
+  return kit.destroy();
 });
 
-test('Request FRUIT in JAN to FEB', (t) => {
-  return t.context.kit.request(
-    [['CAT-1', 'CAT-2']],
-    'FRUIT',
+test('Request BORNIBUS in JAN to FEB', (t) => {
+  return kit.request(
+    [['FRUIT', 'VEGETABLE']],
+    'BORNIBUS',
     new Date('2018-01-05'),
     new Date('2018-02-05'),
     'interested'
   )
-    .then((resultRequest) => {
-      t.is(resultRequest.length, 3);
-      t.is(resultRequest[0].name, 'FRUIT_CAT-1_CAT-2');
-      t.is(resultRequest[1].name, 'CAT-1_CAT-2');
-      t.is(resultRequest[2].name, 'FRUIT');
-      t.deepEqual(_.sortBy(resultRequest[0].result.results, ['clientId']), [
+    .then((result) => {
+      t.is(result.length, 3);
+      t.is(result[0].query, 'BORNIBUS_FRUIT_VEGETABLE');
+      t.is(result[1].query, 'FRUIT_VEGETABLE');
+      t.is(result[2].query, 'BORNIBUS');
+      t.log(JSON.stringify(result, null, 2));
+      t.deepEqual(result[0].clients, []);
+      t.deepEqual(_.sortBy(result[1].clients, ['clientId']), [
         {
           clientId: 'C1234',
           confidence: 0.6774609088897705
@@ -226,7 +230,25 @@ test('Request FRUIT in JAN to FEB', (t) => {
           confidence: 0.6774609088897705
         }
       ]);
-      t.deepEqual(resultRequest[1].result.results, []);
-      t.deepEqual(resultRequest[2].result.results, []);
+      t.deepEqual(result[2].clients, []);
+    });
+});
+
+test('Request PONHU in JAN to FEB', (t) => {
+  return kit.request(
+    [['MEAT', 'CEREAL']],
+    'PONHU',
+    new Date('2018-01-05'),
+    new Date('2018-02-05'),
+    'interested'
+  )
+    .then((result) => {
+      t.is(result.length, 3);
+      t.is(result[0].query, 'PONHU_MEAT_CEREAL');
+      t.is(result[1].query, 'MEAT_CEREAL');
+      t.is(result[2].query, 'PONHU');
+      t.deepEqual(result[0].clients, []);
+      t.deepEqual(result[1].clients, []);
+      t.deepEqual(result[2].clients, []);
     });
 });

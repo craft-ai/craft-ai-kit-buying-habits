@@ -2493,23 +2493,27 @@ moment@2.18.1:
   version "2.20.1"
   resolved "https://registry.yarnpkg.com/moment/-/moment-2.20.1.tgz#d6eb1a46cbcc14a2b2f9434112c1ff8907f313fd"
 
-most-buffer@0.0.9:
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/most-buffer/-/most-buffer-0.0.9.tgz#8d11b24bd97d5d2b40b38ebdeebf12e310147d7a"
+most-buffer@0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/most-buffer/-/most-buffer-0.0.10.tgz#511269584bab33dc020f0e03a3fabf4e9aca1fdd"
 
-most-limiter@0.0.9:
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/most-limiter/-/most-limiter-0.0.9.tgz#c6b5977d413de0e0c7918f32f45807ee15ad0004"
+most-limiter@0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/most-limiter/-/most-limiter-0.0.10.tgz#5584a2fedaa7f81fb3f8bc1997262958f68868b4"
 
-most-range@0.0.9:
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/most-range/-/most-range-0.0.9.tgz#07bbb31f59707172c0c7f5c6fd9573e534ccfd41"
+most-nth@0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/most-nth/-/most-nth-0.0.10.tgz#fe87e0fc544ca2d79ed073429234193cf22bd109"
+
+most-range@0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/most-range/-/most-range-0.0.10.tgz#e251756a9315ae97df306a9225ad0cc16e86d094"
   dependencies:
     lodash.tonumber "4.0.3"
 
-most@1.6.1:
-  version "1.6.1"
-  resolved "https://registry.yarnpkg.com/most/-/most-1.6.1.tgz#2a245adcc7f88617b0a63167cb76bc1fc08a9d0a"
+most@1.7:
+  version "1.7.2"
+  resolved "https://registry.yarnpkg.com/most/-/most-1.7.2.tgz#3f8b8bf0e4410ad8490b3599ea3777fca964a1c4"
   dependencies:
     "@most/multicast" "^1.2.5"
     "@most/prelude" "^1.4.0"
