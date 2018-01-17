@@ -4,6 +4,8 @@ node_js:
 deploy:
   provider: npm
   email: ops@craft.ai
+  api_key:
+    secure: Vx+r6dQa3oxVAe3DyMH/rnhQW3CxJq1nskbd9PJDJ/z5sAogPkXYL/mFBT2PXGkpzWRuNsWpU0oFjA5ednQj48PANZgwLK8bElh2y9ha76P/Vwe4dwotE3bU5BE3nhHTk0B+O8MRx+mVyrHrzyEfynTiCVArN78RDhe3tRX8B2jLM865X1fQHhp5B2ANxTgJYcamDSQKPM5DUNMMO3NYq9FTEhh54tgIrNrMaaGDNdrbnk21hMfI/7WWZRagacGiydLm+CKfh8O46ZXXZOXGhDHgJScpsTL0k1uhNkwK+LkkjyY3yzldEfZ+2FyaFxn7fjGQRaQATnoNXtuJQyJcJbiXwcpOJY4IS/t6q+gXnzYyRQx1oqYv2rcJ13+sQADoeXge8N3gwkwq6gB8oNuLpRcY/Ku9qQPRMTZ8FEP0Qb/8G0C6me+bN2dBlyX1F94Q/SnSlbvtz1Yc4a70aF3cJRQwJBsurZFpferllxH646nQuKGj8/hU92zPZjvlav3Z1WdFTJg+kunMHDDibgDXtJRYGubmAlHWmTJ/8qnorvs6zqnhm7+zjvfKVVmvsohw1jV8aLtQjdfXpPz9e2Cfc7DqljBwJnA6qp2LUWfudAzxp3Oy3VBciwc/1k8J9BCwOZHLNywkhOnndf+stZqJnsTGRnH3EXTHCZW6nCqsWVM=
   on:
     tags: true
     repo: craft-ai/craft-ai-kit-buying-habits
