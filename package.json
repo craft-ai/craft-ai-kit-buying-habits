@@ -1,5 +1,5 @@
 {
-  "name": "kit-buying-habits",
+  "name": "craft-ai-kit-buying-habits",
   "version": "0.0.1",
   "description": "",
   "main": "bin/index.js",
@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test:unit": "ava",
     "test:watch": "ava --watch",
-    "test": "yarn run test:unit && yarn run lint"
+    "test": "yarn run test:unit && yarn run lint",
+    "prepublish": "yarn run build"
   },
   "author": {
     "name": "craft ai",
@@ -18,12 +19,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/craft-ai/kit-buying-habits.git"
+    "url": "git+https://github.com/craft-ai/craft-ai-kit-buying-habits.git"
   },
   "bugs": {
-    "url": "https://github.com/craft-ai/kit-buying-habits/issues"
+    "url": "https://github.com/craft-ai/craft-ai-kit-buying-habits/issues"
   },
-  "homepage": "https://github.com/craft-ai/kit-buying-habits#readme",
+  "homepage": "https://github.com/craft-ai/craft-ai-kit-buying-habits#readme",
   "devDependencies": {
     "@types/lodash": "4.14.73",
     "@types/node": "8.0.22",
