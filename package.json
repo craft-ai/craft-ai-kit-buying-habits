@@ -10,7 +10,7 @@
     "test:unit": "ava",
     "test:watch": "ava --watch",
     "test": "yarn run test:unit && yarn run lint",
-    "prepublish": "npm run build"
+    "prepublish": "yarn run build"
   },
   "author": {
     "name": "craft ai",
